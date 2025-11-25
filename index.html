@@ -87,8 +87,8 @@
 /* ======= Mobile layout tweaks (不影響電腦) ======= */
 @media (max-width: 768px) {
   .top-bar {
-    gap: 16px;
-    flex-wrap: wrap;
+    transform: scale(0.7);
+    transform-origin: top left;
   }
 
   .menu-item {
@@ -106,18 +106,15 @@
     margin-top: 2px;             /* value 另起一行 */
   }
 .ground-line {
-    bottom: 95px;        /* 由 135 減低，留多啲位俾 keyboard */
+    bottom: 160px;    /* 原本 135，手機提高 */
   }
 
-  .gun-wrap {
-    bottom: 105px;       /* 跟住 ground-line 上少少 */
+.gun-wrap {
+    bottom: 170px !important;
   }
-
-  .keyboard {
-    bottom: 4px;         /* 幾乎貼住畫面底，唔洗再捲 */
-    gap: 6px;
+.keyboard {
+    bottom: 0px !important;
   }
-
   .key {
     width: 42px;
     height: 42px;
@@ -547,17 +544,29 @@ function renderRowOfMonsters(round){
   wrap.style.display='flex';
   wrap.style.alignItems='center';
   wrap.style.justifyContent='center';
- const isMobile = window.matchMedia && window.matchMedia('(max-width: 768px)').matches;
-  const baseSize = isMobile ? 84 : 120; // 84 = 120 * 0.7
-
-  wrap.style.setProperty('--monster-size', baseSize + 'px');  wrap.style.gap='calc(var(--monster-size) * 0.2)';
+  wrap.style.setProperty('--monster-size','120px');
+  wrap.style.gap='calc(var(--monster-size) * 0.2)';
   game.appendChild(wrap);
   window.monsterWrap = wrap;
 
+  const isMobile = window.matchMedia('(max-width: 768px)').matches;
+
   // movement state
-  window.monsterState = { wrap, offsetX:0, offsetY:0, phase:'left', remaining:5, HSTEP:30, VSTEP:18, TICK:getTickFromSpeed() };
+  window.monsterState = {
+    wrap,
+    offsetX: 0,
+    offsetY: 0,
+    phase: 'left',
+    remaining: 5,
+    HSTEP: 30,
+    VSTEP: 18,
+    TICK: getTickFromSpeed(),
+    isMobile
+  };
   const S = window.monsterState;
-  const apply = ()=> wrap.style.transform = `translate(-50%,0) translate(${S.offsetX}px,${S.offsetY}px)`; 
+  const apply = () => {
+    wrap.style.transform = `translate(-50%,0) translate(${S.offsetX}px,${S.offsetY}px)`;
+  };
   apply();
 
   // 建立 monsters
@@ -566,11 +575,13 @@ function renderRowOfMonsters(round){
     const img = document.createElement('img');
     img.src = round.monster;
     img.alt = 'monster';
-    img.style.width='calc(var(--monster-size) * 0.8)';
-    img.style.height='calc(var(--monster-size) * 0.8)';
+    img.style.width  = 'calc(var(--monster-size) * 0.8)';
+    img.style.height = 'calc(var(--monster-size) * 0.8)';
     img.style.objectFit='contain';
     img.style.cursor='pointer';
-    img.onclick = ()=>{ try{ new Audio(round.sfx || soundOf(round.monster)).play(); }catch(e){} };
+    img.onclick = () => {
+      try { new Audio(round.sfx || soundOf(round.monster)).play(); } catch(e){}
+    };
     wrap.appendChild(img);
     window.monsters.push({
       el: img,
@@ -581,23 +592,75 @@ function renderRowOfMonsters(round){
     });
   };
 
-// 建立 monsters —— 任何 round 只要有多個 answers 就出多隻
-if (Array.isArray(round.answers) && round.answers.length > 1) {
-  round.answers.forEach(ans => makeOne(ans));
-} else {
-  makeOne(Array.isArray(round.answers) ? (round.answers[0] || '') : (round.answers || ''));
-}
+  // 有多個 answers ⇒ 出多隻怪
+  if (Array.isArray(round.answers) && round.answers.length > 1) {
+    round.answers.forEach(ans => makeOne(ans));
+  } else {
+    makeOne(Array.isArray(round.answers) ? (round.answers[0] || '') : (round.answers || ''));
+  }
 
   // 播入場音
-  try{ new Audio(round.sfx || soundOf(round.monster)).play(); }catch(e){}
+  try { new Audio(round.sfx || soundOf(round.monster)).play(); } catch(e){}
 
   // movement
   stopMovement();
-  window.__moveTimer = setInterval(()=>{
-    if (S.phase==='left')   { S.offsetX -= S.HSTEP; if(--S.remaining===0){ S.phase='down1'; S.remaining=1; } }
-    else if (S.phase==='down1'){ S.offsetY += S.VSTEP; if(--S.remaining===0){ S.phase='right'; S.remaining=5; } }
-    else if (S.phase==='right'){ S.offsetX += S.HSTEP; if(--S.remaining===0){ S.phase='down2'; S.remaining=1; } }
-    else if (S.phase==='down2'){ S.offsetY += S.VSTEP; if(--S.remaining===0){ S.phase='left'; S.remaining=5; } }
+
+  // 📱 手機版：撞到左／右邊界先落一格再轉向
+  if (isMobile) {
+    const gameRect = game.getBoundingClientRect();
+
+    window.__moveTimer = setInterval(() => {
+      const rect = wrap.getBoundingClientRect();
+
+      if (S.phase === 'left') {
+        S.offsetX -= S.HSTEP;
+        if (rect.left <= gameRect.left + 5) {
+          S.phase = 'down1';
+        }
+      }
+      else if (S.phase === 'down1') {
+        S.offsetY += S.VSTEP;
+        S.phase = 'right';
+      }
+      else if (S.phase === 'right') {
+        S.offsetX += S.HSTEP;
+        if (rect.right >= gameRect.right - 5) {
+          S.phase = 'down2';
+        }
+      }
+      else if (S.phase === 'down2') {
+        S.offsetY += S.VSTEP;
+        S.phase = 'left';
+      }
+
+      apply();
+      syncActiveOverlays && syncActiveOverlays();
+      checkDangerWarning && checkDangerWarning();
+      checkNearGunAndPause && checkNearGunAndPause();
+    }, S.TICK);
+
+    return; // 手機版到此結束，不用落返去 desktop pattern
+  }
+
+  // 🖥️ 電腦版：保持原本「左5步、落1步、右5步、落1步」pattern
+  window.__moveTimer = setInterval(() => {
+    if (S.phase === 'left') {
+      S.offsetX -= S.HSTEP;
+      if (--S.remaining === 0) { S.phase = 'down1'; S.remaining = 1; }
+    }
+    else if (S.phase === 'down1') {
+      S.offsetY += S.VSTEP;
+      if (--S.remaining === 0) { S.phase = 'right'; S.remaining = 5; }
+    }
+    else if (S.phase === 'right') {
+      S.offsetX += S.HSTEP;
+      if (--S.remaining === 0) { S.phase = 'down2'; S.remaining = 1; }
+    }
+    else if (S.phase === 'down2') {
+      S.offsetY += S.VSTEP;
+      if (--S.remaining === 0) { S.phase = 'left'; S.remaining = 5; }
+    }
+
     apply();
     syncActiveOverlays && syncActiveOverlays();
     checkDangerWarning && checkDangerWarning();
@@ -1109,7 +1172,10 @@ function checkDangerWarning(){
 function startDangerWarning(){
   if (__dangerOn) return; __dangerOn = true;
   try{
-    __sirenAudio = new Audio(AUDIO_PATH + 'siren.mp3'); __sirenAudio.loop = true; __sirenAudio.play().catch(()=>{});
+    __sirenAudio = new Audio(AUDIO_PATH + 'siren.mp3'); 
+__sirenAudio.volume = 0.7; 
+__sirenAudio.loop = true;
+__sirenAudio.play().catch(()=>{});
   }catch(e){}
   const host = document.getElementById('game'); if (!host) return;
   let red = false;
