@@ -89,23 +89,21 @@
 .top-bar{
     font-size: 14px;          /* 大約原來 70% */
     justify-content: center;  /* 三個 menu 齊中 */
-    gap: 16px;
   }
-.menu-item{
+ .menu-item {
     display: flex;
-    flex-direction: column;   /* 上面 < LESSON > 下面 11 */
+    flex-direction: column;
     align-items: center;
-    text-align: center;
+    justify-content: flex-start;  /* 令 <START> 貼上行 */
+    line-height: 1.1;
   }
   .menu-item .label-line {
     white-space: nowrap;         /* < LESSON> 一行 */
   }
 
- .menu-item .value{
+ .menu-item .value {
     display: block;
-    margin-top: 2px;
-    font-size: 14px;          /* 綠色字縮細 */
-    text-align: center;       /* 11 / NORMAL 都居中 */
+    margin-top: 2px;      /* 上下距離你可以自己再改 */
   }
 .ground-line{
     bottom: 190px;    /* 比 desktop 135 再高啲 */
@@ -113,10 +111,8 @@
 .gun-wrap{
     bottom: 205px;
   }
-.keyboard{
-    transform: scale(0.9);
-    transform-origin: center bottom;
-    bottom: 8px;
+.keyboard {
+    bottom: 170px;         /* 由原本 14px 改做 70px */
   }
   .key {
     width: 42px;
@@ -1230,7 +1226,7 @@ function startDangerWarning(){
   if (__dangerOn) return; __dangerOn = true;
   try{
     __sirenAudio = new Audio(AUDIO_PATH + 'siren.mp3'); 
-__sirenAudio.volume = 0.7; 
+__sirenAudio.volume = 0.3; 
 __sirenAudio.loop = true;
 __sirenAudio.play().catch(()=>{});
   }catch(e){}
